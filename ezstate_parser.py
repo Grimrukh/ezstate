@@ -37,7 +37,7 @@ function_lookup = {
 }
 
 
-def parse(input_line):
+def parse(input_line, full_brackets=False):
     # input_line is a list of hex byte strings.
 
     global REGISTERS
@@ -110,12 +110,18 @@ def parse(input_line):
 
             elif byte == '98':
                 # Applies AND operation to the last two values.
-                output_line[-2] = '{} and {}'.format(output_line[-2], output_line[-1])
+                if full_brackets:
+                    output_line[-2] = '({}) and ({})'.format(output_line[-2], output_line[-1])
+                else:
+                    output_line[-2] = '{} and {}'.format(output_line[-2], output_line[-1])
                 output_line.pop()
 
             elif byte == '99':
                 # Applies OR operation to the last two values.
-                output_line[-2] = '{} or {}'.format(output_line[-2], output_line[-1])
+                if full_brackets:
+                    output_line[-2] = '({}) or ({})'.format(output_line[-2], output_line[-1])
+                else:
+                    output_line[-2] = '{} or {}'.format(output_line[-2], output_line[-1])
                 output_line.pop()
 
             elif byte == 'a1':

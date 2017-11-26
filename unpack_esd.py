@@ -214,9 +214,12 @@ def write_state_title_bar(index):
     print()
 
 
-def display_esd(state_table, next_state_table, command_table, rows=None, raw=False):
+def display_esd(state_table, next_state_table, command_table, rows=None, raw=False, full_brackets=False):
     
     # Display ESD files in a more readable format.
+    # rows: specify which rows (states) to interpret.
+    # raw: write bytes without interpretation from ezstate_parser.
+    # full_brackets: include full brackets for logical AND/OR operations to see explicit order.
     
     if rows is None:
         rows = range(len(state_table))
@@ -265,7 +268,7 @@ def display_esd(state_table, next_state_table, command_table, rows=None, raw=Fal
                                                   ', '.join([' '.join(arg) for arg in args])))
                 else:
                     print('    {}: {}({})'.format(name, ' ' * (20 - len(name)),
-                                                  ', '.join([ezstate_parser.parse(arg) for arg in args])))
+                                                  ', '.join([ezstate_parser.parse(arg, full_brackets) for arg in args])))
             if alt_next_states:
                 print('     ALT Next States: {}'.format(alt_next_states))
             if raw:
@@ -277,7 +280,7 @@ def display_esd(state_table, next_state_table, command_table, rows=None, raw=Fal
         for _, id, args in off_commands:
             name = command_names.get(id, 'Unknown ({})'.format(id))
             print('    {}: {}({})'.format(name, ' ' * (20 - len(name)),
-                                          ', '.join([ezstate_parser.parse(args) for args in args])))
+                                          ', '.join([ezstate_parser.parse(args, full_brackets) for args in args])))
 
 if __name__ == '__main__':
 
@@ -288,4 +291,4 @@ if __name__ == '__main__':
 
     with open(out_filename, 'w') as file:
         with redirect_stdout(file):
-            display_esd(*tables, raw=False)
+            display_esd(*tables, raw=False, full_brackets=False)
