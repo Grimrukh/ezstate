@@ -133,8 +133,7 @@ def parse(input_line, full_brackets=False):
 
             elif byte == 'a6':
                 # My leading hypothesis for this byte is that it forces the command to continue even when the previous
-                # value is false (0), which would normally stop the condition line from continuing. I have left this
-                # byte out of the normal display mode, but you can enable it (and b7) with show_continuation=True.
+                # value is false (0), which would normally stop the condition line from continuing.
                 output_line[-1] += '^'
                 pass
 
