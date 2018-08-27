@@ -20,6 +20,7 @@ marker_lookup = {
     '93': '<',
     '94': '>',
     '95': '==',
+    '96': '!=',
 }
 
 function_lookup = {
@@ -27,24 +28,28 @@ function_lookup = {
     # Note that these indices are completely different to the on/off command IDs.
     1:  'GetPlayerDistance',
     2:  'IsDialogueFinished',
+    3:  'ChrIsDead',
     4:  'GetActionButton',
     5:  'DamagedByPlayer',
     6:  'HealthPercentage',  # from 0 to 100.
     8:  'PlayerFacingAngle',  # angle away from the NPC that player is facing. Max is 180.
-    9:  'IsFriendly',
+    # 9:  'IsFriendly',  # incorrect, something to do with dialogue boxes I think.
     14: 'GetPromptState',
     15: 'GetEventFlagState',  # takes an event flag as an argument.
+    22: 'GetYesNoButtonSelection',  # 0 = Cancel button, 1 = Yes, 2 = No
+    23: 'GetSelectedMenuIndex',
 }
 
 
 def parse(input_line, full_brackets=False):
-    # input_line is a list of hex byte strings.
+    """ input_line can be a bytes object, or a list of hex byte strings. """
+    if isinstance(input_line, bytes):
+        input_line = [input_line[i:i+1].hex() for i in range(len(input_line))]
 
     global REGISTERS
 
     output_line = []
     offset = 0
-    condition_start = 0
 
     while offset < len(input_line):
 
@@ -58,18 +63,27 @@ def parse(input_line, full_brackets=False):
         else:
 
             if byte == 'a5':
-                # This byte appears at the start of arguments to command (0), often at the start of the ON command of
-                # the main waiting state. I haven't figured out what data type it represents yet, so I'm ignoring the
-                # rest of the line for now.
-                return ' '.join(input_line)
+                # Read a null-terminated UTF-16LE string.
+                string = ''
+                hex_chr = bytearray.fromhex(''.join(input_line[offset:offset+2]))
+                offset += 2
+                while hex_chr != b'\x00\x00':
+                    string += hex_chr.decode('utf-16le')
+                    hex_chr = bytearray.fromhex(''.join(input_line[offset:offset + 2]))
+                    offset += 2
+                output_line.append(string)
 
             elif byte == '80':
-                # Next four bytes form a float.
+                # Next four bytes form a single-precision float.
                 float_value = unpack('<f', bytearray.fromhex(''.join(input_line[offset:offset + 4])))[0]
                 offset += 4
                 output_line.append(str(float_value))
 
-            # Byte '81' represents another data type I haven't identified, but doesn't appear often in the talk files.
+            elif byte == '81':
+                # Next eight bytes form a double-precision float.
+                double_value = unpack('<d', bytearray.fromhex(''.join(input_line[offset:offset + 8])))[0]
+                offset += 8
+                output_line.append(str(double_value))
 
             elif byte == '82':
                 # Next four bytes form an integer.
@@ -102,7 +116,10 @@ def parse(input_line, full_brackets=False):
 
             # I assume bytes 87-90 mark functions that take more arguments but haven't encountered them yet to confirm.
 
-            elif '91' <= byte <= '95':
+            # I think 8c is a simple binary operation, probably addition. That means 8d, 8e, 8f could be subtraction,
+            # multiplication, and division. Not sure about 90.
+
+            elif '91' <= byte <= '96':
                 # Applies comparison operator to the last two values (left and right, respectively).
                 comparison_operator = marker_lookup[byte]
                 output_line[-2] = '({} {} {})'.format(output_line[-2], comparison_operator, output_line[-1])
@@ -133,7 +150,8 @@ def parse(input_line, full_brackets=False):
 
             elif byte == 'a6':
                 # My leading hypothesis for this byte is that it forces the command to continue even when the previous
-                # value is false (0), which would normally stop the condition line from continuing.
+                # value is false (0), which would normally stop the condition line from continuing. I have left this
+                # byte out of the normal display mode, but you can enable it (and b7) with show_continuation=True.
                 output_line[-1] += '^'
                 pass
 
@@ -159,10 +177,7 @@ def parse(input_line, full_brackets=False):
                 output_line[-1] += '!'
 
             else:
-                marker = marker_lookup.get(byte, None)
-                if marker is None:
-                    output_line.append('[{}]'.format(byte))
-                else:
-                    output_line.append(marker)
+                marker = marker_lookup.get(byte, '[{}]'.format(byte))
+                output_line.append(marker)
 
     return ' '.join(output_line)
