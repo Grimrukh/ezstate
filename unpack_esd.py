@@ -232,25 +232,24 @@ class Condition(object):
     def __str__(self, raw=False, full_brackets=False):
 
         state_fmt = '<br><div style="color:black;line-height:0.5;margin-left:{}px;">{}</div>'
-        expression_fmt = '<br><div style="color:black;line-height:1;margin-left:{}px;font-family:sans-serif">{}</div>'
+        expression_fmt = ('<br><div style="color:black;line-height:1;margin-left:{}px;font-family:sans-serif">IF: '
+                          '{}</div>')
         command_fmt = '<br><div style="color:black;font-weight:bold;line-height:0.5;margin-left:{}px;">{}</div>'
         string = ''
 
-        if self.next_state_index == -1:
-            string += state_fmt.format(30 * (2 + self.__indent), 'IF:')
-        else:
-            string += state_fmt.format(30 * (2 + self.__indent), '---> <a href="#ezstate_{index}">State {index}'
-                                                                 '</a>:'.format(index=self.next_state_index))
-
         if raw:
             string += expression_fmt.format(30 * (2 + self.__indent), ''.join(str(self.expression.hex())))
-        string += expression_fmt.format(30 * (2 + self.__indent), ezparse(self.expression, full_brackets))
+        string += expression_fmt.format(20 * (2 + self.__indent), ezparse(self.expression, full_brackets))
+
+        if self.next_state_index != -1:
+            string += state_fmt.format(20 * (3 + self.__indent), '---> <a href="#ezstate_{index}">State {index}'
+                                                                 '</a>:'.format(index=self.next_state_index))
+
         if self.commands:
-            string += command_fmt.format(30 * (2 + self.__indent), 'Commands:')
+            string += command_fmt.format(20 * (2 + self.__indent), 'Commands:')
             for command in self.commands:
                 string += str(command)
         if self.subconditions:
-            string += state_fmt.format(30 * (2 + self.__indent), 'THEN:')
             for condition in self.subconditions:
                 string += str(condition)
         return string
@@ -277,15 +276,15 @@ class Command(object):
         fmt = '<br><div style="color:black;line-height:1;margin-left:{}px;">{}({})</div>'
         string = ''
         if raw and names is not None:
-            string += fmt.format(30 * (2 + self.__indent), names[0], ', '.join([' '.join(arg) for arg in self.args]))
+            string += fmt.format(20 * (2 + self.__indent), names[0], ', '.join([' '.join(arg) for arg in self.args]))
         elif names is None or (len(names) != len(self.args) + 1 and len(names) != 1):
             name = 'function_{}'.format(self.index)
             red_fmt = fmt.replace('color:black', 'color:red')
-            string += red_fmt.format(30 * (2 + self.__indent), name, ', '.join([ezparse(arg) for arg in self.args]))
+            string += red_fmt.format(20 * (2 + self.__indent), name, ', '.join([ezparse(arg) for arg in self.args]))
         elif len(names) == 1:
-            string += fmt.format(30 * (2 + self.__indent), names[0], ', '.join([ezparse(arg) for arg in self.args]))
+            string += fmt.format(20 * (2 + self.__indent), names[0], ', '.join([ezparse(arg) for arg in self.args]))
         else:
-            string += fmt.format(30 * (2 + self.__indent), names[0],
+            string += fmt.format(20 * (2 + self.__indent), names[0],
                                  ', '.join([names[i + 1] + '=' + ezparse(arg) for i, arg in enumerate(self.args)]))
         return string
 
@@ -691,5 +690,5 @@ if __name__ == '__main__':
     new_state_description = b'\xa5' + 'Hello there'.encode('utf-16le') + b'\x00\x00'
     ezstate.states[1].enter_commands[0].args[0] = new_state_description
 
-    # Repack:
+    Repack:
     ezstate.write(esd_file_path[:-4] + '.repack.esd')
