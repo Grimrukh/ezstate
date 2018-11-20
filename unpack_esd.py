@@ -690,5 +690,5 @@ if __name__ == '__main__':
     new_state_description = b'\xa5' + 'Hello there'.encode('utf-16le') + b'\x00\x00'
     ezstate.states[1].enter_commands[0].args[0] = new_state_description
 
-    Repack:
+    # Repack:
     ezstate.write(esd_file_path[:-4] + '.repack.esd')
