@@ -1,0 +1,88 @@
+Hypotheses (about EzState register functions, not ON or OFF commands).
+
+EnemyInBonfireCollision: f31() / f3() / f26() / f19()
+
+PlayerIsHost: f32() / f37(1) == 1
+
+BonfireIsLit: f38(2, 0) == 1
+
+### LAURENTIUS ###
+
+- Functions 19, 26, and 31 are all bad for NPC interaction. They must all be false to enable the
+  Talk prompt, and it is disabled whenever one of them is true. Laurentius doesn't even call out
+  to you for help from his urn if any of them are true.
+
+- Function 3 also breaks the prompt, but is also used to trigger dying words. It is a good
+  candidate for ThisChrIsDead(). However, it's also used to disable the bonfire prompt. That could
+  be a remnant of standard use.
+
+### GIANT BLACKSMITH ###
+
+- Command 24(0) may be used to open the Reinforce Weapon menu.
+- Command 24(10) may be used to open the Reinforce Armor menu.
+- Command 49(x, y) may be used to open the Modify Equipment menu, with args around 300-400.
+    - These args are likely event flags for possessing certain boss souls or embers.
+
+### BONFIRE ###
+
+State 10: Main state to control bonfire prompts before player interacts with it.
+
+- Two conditions for removing the prompt (State 12):
+    - Prompt is active, and f37(0) == 1, and f32() == 1, and f31() == 0, and f3() == 0, and f26 == 0, and f19 == 0,
+      and player angle <= 45, and player distance <= 2.
+        - It's strange that this requires a confluence of conditions, just to return to State 10 again. It suggests that
+          this is actually lighting the bonfire or something.
+    - A bunch of things can break the prompt:
+        - f31() is true
+        - f3() is true
+        - f26() is true
+        - f19() == 1
+        - player angle > 45
+        - player distance > 2
+
+        Note that f32() and f3() are missing (despite being required to display the prompt), which suggests that these
+        are things that cannot change given that they have already been true (e.g. player is host).
+
+- Move to resting status (State 1) if bonfire is already lit:
+        f38(2, 0) == 1
+    and f37(1) == 1
+
+
+- Displaying the 'light bonfire' prompt (State 13) requires:
+    - GetPromptState() == 0
+    - f32 == 1
+    - f31 == 0
+    - f3 == 0
+    - f26 == 0
+    - f19 == 0
+    - GetPlayerFacingAngle() <= 45
+    - GetPlayerDistance() <= 2
+    - f37(1) == 1
+
+    This must include:
+        - No enemies are inside a collision associated with this bonfire.
+        - Player is a host, not a summon.
+        - Bonfire is not already lit.
+        - Bonfire is registered (I think).
+        - Possibly, no summons are present, though this may just be for resting.
+
+    f32 could be "PlayerIsHost".
+
+- Light the bonfire:
+    - GetActionButton() == 1
+    - PlayerFacingAngle() <= 45
+    - PlayerDistance() <= 2
+    - GetPromptState() == 1
+    - f37(1) == 1
+
+    This goes to state 11 (remove prompt), then state 9 ( F40(), F53(26) ), then state 8 ( F36() ), then back to state
+    10, where it will probably go straight through to state 1.
+
+
+
+Resting State (1)
+
+ON: F38(10)
+
+State 10:
+    f38(0, 0) == 1          Bonfire is not lit? Would never happen, but it's feasible.

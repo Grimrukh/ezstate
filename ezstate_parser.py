@@ -36,12 +36,14 @@ function_lookup = {
     # 9:  'IsFriendly',  # incorrect, something to do with dialogue boxes I think.
     14: 'GetPromptState',
     15: 'GetEventFlagState',  # takes an event flag as an argument.
+    16: 'HasItem',  # (item_type, item_id)
+    17: 'HasEquipped',  # (equipment_type, equipment_param_id)
     22: 'GetYesNoButtonSelection',  # 0 = Cancel button, 1 = Yes, 2 = No
     23: 'GetSelectedMenuIndex',
 }
 
 
-def parse(input_line, full_brackets=False):
+def ezparse(input_line, full_brackets=False):
     """ input_line can be a bytes object, or a list of hex byte strings. """
     if isinstance(input_line, bytes):
         input_line = [input_line[i:i+1].hex() for i in range(len(input_line))]
@@ -57,7 +59,7 @@ def parse(input_line, full_brackets=False):
         offset += 1
 
         if '3f' <= byte <= '7f':
-            # Interpret byte as an integer offset by +64.
+            # Interpret byte as an integer offset by +64 (so can represent integers -1 to 63). [82] needed otherwise.
             output_line.append(str(int(byte, 16) - 64))
 
         else:
@@ -96,25 +98,34 @@ def parse(input_line, full_brackets=False):
             elif byte == '84':
                 # Previous integer is a function index with no arguments.
                 function_index = int(output_line[-1])
-                function_name = function_lookup.get(function_index, 'F-{}'.format(function_index))
+                function_name = function_lookup.get(function_index, 'method_{}'.format(function_index))
                 output_line[-1] = function_name + '()'
 
             elif byte == '85':
                 # Previous two values represent a function index and one argument (in that order).
                 function_index = int(output_line[-2])
-                function_name = function_lookup.get(function_index, 'F-{}'.format(function_index))
+                function_name = function_lookup.get(function_index, 'method_{}'.format(function_index))
                 output_line[-2] = function_name + '({})'.format(output_line[-1])
                 output_line.pop()   # function and argument have been combined
 
             elif byte == '86':
                 # Previous three values represent a function index and two arguments (in that order).
                 function_index = int(output_line[-3])
-                function_name = function_lookup.get(function_index, 'F-{}'.format(function_index))
-                output_line[-3] = function_name + '({}, {})'.format(output_line[-2], output_line[-1])
+                function_name = function_lookup.get(function_index, 'method_{}'.format(function_index))
+                output_line[-3] = function_name + '({}, {})'.format(*output_line[-2:])
                 output_line.pop()   # function and arguments have been combined
                 output_line.pop()
 
-            # I assume bytes 87-90 mark functions that take more arguments but haven't encountered them yet to confirm.
+            elif byte == '87':
+                # Previous four values represent a function index and three arguments (in that order).
+                function_index = int(output_line[-4])
+                function_name = function_lookup.get(function_index, 'method_{}'.format(function_index))
+                output_line[-4] = function_name + '({}, {}, {})'.format(*output_line[-3:])
+                output_line.pop()   # function and arguments have been combined
+                output_line.pop()
+                output_line.pop()
+
+            # I assume bytes 88-8b mark functions that take 5/6/7 arguments but haven't encountered them yet to confirm.
 
             # I think 8c is a simple binary operation, probably addition. That means 8d, 8e, 8f could be subtraction,
             # multiplication, and division. Not sure about 90.
