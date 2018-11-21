@@ -26,16 +26,16 @@ marker_lookup = {
 function_lookup = {
     # Not all of these are confirmed. Feel free to study the code and present evidence.
     # Note that these indices are completely different to the on/off command IDs.
-     0: 'GetWhetherEnemiesAreNearby',
-     1: 'GetDistanceToPlayer',
-     2: 'HasTalkEnded',
-     3: 'CheckSelfDeath',
-     4: 'IsPlayerTalkingToMe',
-     5: 'IsAttackedBySomeone',
-     6: 'GetMyHp', # from 0 to 100.
-     7: 'GetDistanceFromEnemy',
-     8: 'GetRelativeAngleBetweenPlayerAndSelf',
-     9: 'IsPlayerAttacking',
+    0: 'GetWhetherEnemiesAreNearby',
+    1: 'GetDistanceToPlayer',
+    2: 'HasTalkEnded',
+    3: 'CheckSelfDeath',
+    4: 'IsPlayerTalkingToMe',
+    5: 'IsAttackedBySomeone',
+    6: 'GetMyHp', # from 0 to 100.
+    7: 'GetDistanceFromEnemy',
+    8: 'GetRelativeAngleBetweenPlayerAndSelf',
+    9: 'IsPlayerAttacking',
     10: 'GetRelativeAngleBetweenSelfAndPlayer',
     11: 'IsTalkInProgress',
     12: 'GetTalkInterruptReason',
