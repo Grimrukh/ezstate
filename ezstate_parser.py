@@ -26,20 +26,78 @@ marker_lookup = {
 function_lookup = {
     # Not all of these are confirmed. Feel free to study the code and present evidence.
     # Note that these indices are completely different to the on/off command IDs.
-    1:  'GetPlayerDistance',
-    2:  'IsDialogueFinished',
-    3:  'ChrIsDead',
-    4:  'GetActionButton',
-    5:  'DamagedByPlayer',
-    6:  'HealthPercentage',  # from 0 to 100.
-    8:  'PlayerFacingAngle',  # angle away from the NPC that player is facing. Max is 180.
-    # 9:  'IsFriendly',  # incorrect, something to do with dialogue boxes I think.
-    14: 'GetPromptState',
-    15: 'GetEventFlagState',  # takes an event flag as an argument.
-    16: 'HasItem',  # (item_type, item_id)
-    17: 'HasEquipped',  # (equipment_type, equipment_param_id)
-    22: 'GetYesNoButtonSelection',  # 0 = Cancel button, 1 = Yes, 2 = No
-    23: 'GetSelectedMenuIndex',
+     0: 'GetWhetherEnemiesAreNearby',
+     1: 'GetDistanceToPlayer',
+     2: 'HasTalkEnded',
+     3: 'CheckSelfDeath',
+     4: 'IsPlayerTalkingToMe',
+     5: 'IsAttackedBySomeone',
+     6: 'GetMyHp', # from 0 to 100.
+     7: 'GetDistanceFromEnemy',
+     8: 'GetRelativeAngleBetweenPlayerAndSelf',
+     9: 'IsPlayerAttacking',
+    10: 'GetRelativeAngleBetweenSelfAndPlayer',
+    11: 'IsTalkInProgress',
+    12: 'GetTalkInterruptReason',
+    13: 'GetShopCondition',
+    14: 'GetOneLineHelpStatus',
+    15: 'GetEventStatus',
+    16: 'IsEquipmentIDObtained', # (equipment_type, item_id)
+    17: 'IsEquipmentIDEquipped', # (equipment_type, equipment_param_id)
+    18: 'IsFightingAlone',
+    19: 'IsClientPlayer',
+    20: 'IsCampMenuOpen',
+    21: 'IsGenericDialogOpen',
+    22: 'GetGenericDialogButtonResult', # 0 = Cancel button, 1 = Yes, 2 = No
+    23: 'GetTalkListEntryResult',
+    24: 'IsMoviePlaying',
+    25: 'IsMenuOpen',
+    26: 'IsCharacterDisabled',
+    27: 'IsPlayerDead',
+    28: 'DidYouDoSomethingInTheMenu',
+    29: 'GetStatus',
+    30: 'IsPlayerMovingACertainDistance',
+    31: 'IsTalkingToSomeoneElse',
+    32: 'HasDisableTalkPeriodElapsed',
+    33: 'HasPlayerBeenAttacked',
+    34: 'GetPlayerYDistance',
+    35: 'GetPlayerChrType',
+    36: 'CanIGoToNextTalkBlock',
+    37: 'CompareBonfireState',
+    38: 'CompareBonfireLevel',
+    39: 'CompareParentBonfire',
+    40: 'BonfireRegistration0',
+    41: 'BonfireRegistration1',
+    42: 'BonfireRegistration2',
+    43: 'BonfireRegistration3',
+    44: 'BonfireRegistration4',
+    45: 'ComparePlayerStatus',
+    46: 'RelativeAngleBetweenTwoPlayers_SpecifyAxis',
+    47: 'ComparePlayerInventoryNumber',
+    48: 'IsPlayerCurrentWeaponDamaged',
+    49: 'ComparePlayerAcquittalPrice',
+    50: 'CompareRNGValue',
+    51: 'WasWarpMenuDestinationSelected',
+    52: 'IsMultiplayerInProgress',
+    53: 'IsTalkExclusiveMenuOpen',
+    54: 'IsRankingMenuOpen',
+    55: 'GetPlayerRemainingHP',
+    56: 'CheckActionButtonArea',
+    57: 'CheckSpecificPersonTalkHasEnded',
+    58: 'CheckSpecificPersonGenericDialogIsOpen',
+    59: 'CheckSpecificPersonMenuIsOpen',
+    60: 'DoesSelfHaveSpEffect',
+    61: 'DoesPlayerHaveSpEffect',
+    62: 'GetValueFromNumberSelectDialog',
+    63: 'GetWorkValue',
+    64: 'GetEventFlagValue',
+    65: 'GetCurrentStateElapsedFrames',
+    66: 'GetCurrentStateElapsedTime',
+    67: 'GetPlayerStatus',
+    68: 'GetLevelUpSoulCost',
+    69: 'GetWhetherChrTurnAnimHasEnded',
+    70: 'GetWhetherChrEventAnimHasEnded',
+    71: 'GetItemHeldNumLimit',
 }
 
 
