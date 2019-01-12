@@ -683,18 +683,12 @@ if __name__ == '__main__':
     esd_file_path = 'talk/t180100.esd'   # .esd file path
     ezstate = EzState(esd_file_path)
 
-    old_expression = ezstate.states[30].conditions[1].expression
-    new_expression = old_expression[:50] + b'\xa6\x50\x43\x82\xc9\x09\x00\x00\x86\xa6\x40\x95\x98\xa1'
-
-    ezstate.states[30].conditions[1].expression = new_expression
-    ezstate.write(esd_file_path[:-4] + '.with_dark_remnant.esd')
-    ezstate.unpack_to_html_file(esd_file_path[:-4] + '.with_dark_remnant.esd.html')
     # Print to a HTML file with easy hyperlinks (defaults to '[esd_file_path].html'):
-    # ezstate.unpack_to_html_file()
+    ezstate.unpack_to_html_file()
 
     # Make a change:
-    # new_state_description = b'\xa5' + 'Hello there'.encode('utf-16le') + b'\x00\x00'
-    # ezstate.states[1].enter_commands[0].args[0] = new_state_description
+    new_state_description = b'\xa5' + 'Hello there'.encode('utf-16le') + b'\x00\x00'
+    ezstate.states[1].enter_commands[0].args[0] = new_state_description
 
     # Repack:
-    # ezstate.write(esd_file_path[:-4] + '.repack.esd')
+    ezstate.write(esd_file_path[:-4] + '.repack.esd')
