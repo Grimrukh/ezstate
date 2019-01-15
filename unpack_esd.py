@@ -9,6 +9,7 @@ from collections import OrderedDict
 from contextlib import redirect_stdout
 from io import BytesIO
 from struct import calcsize, pack, unpack
+from pprint import pprint
 from command_names import COMMAND_NAMES
 from ezstate_parser import ezparse, reset_registers
 
@@ -73,8 +74,11 @@ HEADER = EzStruct(
     version_tail='iii',  # (1, 1, 1)
     table_size_offset='i',  # 84
     file_size_offset='i',  # excludes header size
-    unknowns='iiii',  # (6, 44, 1, 16)  probably offsets or sizes of something obvious
-    state_table_count='i',  # 1 or 2 (for enemyCommon.esd)
+    unknown='i',  # 6
+    base_state_header_size='i',  # 44
+    base_state_header_count='i',  # 1
+    state_table_header_size='i',  # 16
+    state_table_count='i',  # 1 or 2 (two only used for enemyCommon.esd - "active" and "passive" state tables)
     state_row_size='i',
     state_row_count='i',
     condition_row_size='i',
@@ -117,11 +121,11 @@ DOUBLE_STATE_HEADER = EzStruct(
     zeroes='ii',
     first_state_table_index='i',
     first_state_table_offset='i',
-    first_state_table_size='i',  # number of states
+    first_state_table_size='i',  # number of states in table 1
     first_state_table_offset_2='i',  # duplicate
     second_state_table_index='i',
     second_state_table_offset='i',
-    second_state_table_size='i',  # number of states
+    second_state_table_size='i',  # number of states in table 2
     second_state_table_offset_2='i',  # duplicate
 )
 
@@ -171,12 +175,13 @@ CONDITION_POINTER = EzStruct(
 
 class State(object):
 
-    def __init__(self, index, conditions, onset_commands, offset_commands, unknown_commands):
+    def __init__(self, index, conditions, onset_commands, offset_commands, unknown_commands, table_index=0):
         self.index = index
         self.conditions = conditions
         self.enter_commands = onset_commands
         self.exit_commands = offset_commands
         self.unknown_commands = unknown_commands
+        self.table_index = table_index  # Part of first or second state table.
 
     def __eq__(self, other_state):
         return self.__dict__ == other_state.__dict__
@@ -213,18 +218,20 @@ class State(object):
 
 class Condition(object):
 
-    def __init__(self, next_state_index, expression, commands=(), subconditions=(), print_indent=0):
+    def __init__(self, next_state_index, expression, commands=(), subconditions=(), active=False, print_indent=0):
         self.next_state_index = next_state_index
         self.expression = expression
         self.commands = commands
         self.subconditions = subconditions
+        self.active = active
         self.__indent = print_indent
 
     def __eq__(self, other_condition):
         return (self.next_state_index == other_condition.next_state_index
                 and self.expression == other_condition.expression
                 and self.commands == other_condition.commands
-                and self.subconditions == other_condition.subconditions)
+                and self.subconditions == other_condition.subconditions
+                and self.active == other_condition.active)
 
     def __hash__(self):
         return hash((self.next_state_index, self.expression, tuple(self.commands), tuple(self.subconditions)))
@@ -294,7 +301,8 @@ class EzState(object):
     def __init__(self, input_path):
 
         self.input_path = input_path
-        self.states = []
+        self.passive_states = []
+        self.active_states = []
 
         with open(input_path, 'rb') as file:
 
@@ -307,11 +315,28 @@ class EzState(object):
                 self.state_table_count = 2
                 self.state_header = DOUBLE_STATE_HEADER.unpack(file)[0]
 
+            [print(k, '    ', v) for k, v in self.header.items()]  # TODO
+
             self.state_table = STATE.unpack(file, count=self.header['state_row_count'])
+            print('\nInput state table size:', len(self.state_table) * STATE.size)
+            print('\nInput state table:')
+            [print(offset, list(state.values())) for offset, state in self.state_table.items()]
             self.condition_table = CONDITION.unpack(file, count=self.header['condition_row_count'])
+            print('\nInput condition table size:', len(self.condition_table) * CONDITION.size)
+            print('\nInput condition table:')
+            [print(offset, list(condition.values())) for offset, condition in self.condition_table.items()]
             self.command_table = COMMAND.unpack(file, count=self.header['command_row_count'])
+            print('\nInput command table size:', len(self.command_table) * COMMAND.size)
+            print('\nInput command table:')
+            [print(offset, list(command.values())) for offset, command in self.command_table.items()]
             self.command_arg_table = COMMAND_ARG.unpack(file, count=self.header['command_arg_row_count'])
+            print('\nInput command arg table size:', len(self.command_arg_table) * COMMAND_ARG.size)
+            print('\nInput command arg table:')
+            [print(offset, list(command_arg.values())) for offset, command_arg in self.command_arg_table.items()]
             self.condition_pointer_table = CONDITION_POINTER.unpack(file, count=self.header['condition_pointers_count'])
+            print('\nInput condition pointer table size:', len(self.condition_pointer_table) * CONDITION_POINTER.size)
+            print('\nInput condition pointer table:')
+            [print(offset, list(condition_pointer.values())) for offset, condition_pointer in self.condition_pointer_table.items()]
             self.packed_offset = file.tell() - HEADER.size
             self.packed_expressions = file.read()  # Rest of file.
 
@@ -348,15 +373,23 @@ class EzState(object):
 
     def build(self):
 
-        self.states = []
-        for state in self.state_table.values():
+        self.passive_states = []
+        self.active_states = []
+        for state_offset, state in self.state_table.items():
+            print(f"Building state {state} with offset {state_offset}")
             conditions = self.parse_conditions(state['condition_pointers_offset'], state['condition_pointers_count'])
             enter_commands = self.parse_commands(state['enter_commands_offset'], state['enter_commands_count'])
             exit_commands = self.parse_commands(state['exit_commands_offset'], state['exit_commands_count'])
             unknown_commands = self.parse_commands(state['unknown_commands_offset'], state['unknown_commands_count'])
-            self.states.append(
-                State(state['index'], conditions, enter_commands, exit_commands, unknown_commands)
-            )
+
+            if self.state_table_count == 2 and state_offset >= self.state_header['second_state_table_offset']:
+                self.active_states.append(
+                    State(state['index'], conditions, enter_commands, exit_commands, unknown_commands)
+                )
+            else:
+                self.passive_states.append(
+                    State(state['index'], conditions, enter_commands, exit_commands, unknown_commands)
+                )
 
     def parse_conditions(self, condition_pointers_offset, condition_pointers_count, print_indent=0):
         """ Get list of Conditions from condition pointers. """
@@ -367,6 +400,9 @@ class EzState(object):
         for i in range(condition_pointers_count):
             condition_offset = self.condition_pointer_table[condition_pointers_offset + 4 * i]['condition_offset']
             condition = self.condition_table[condition_offset]
+
+            print('Condition offset:', condition_offset)
+            print('Condition:', condition)
 
             next_state_offset = condition['next_state_offset']
 
@@ -386,8 +422,14 @@ class EzState(object):
                                                       print_indent=print_indent + 4)
             condition_expression = self.get_packed_expression(
                 condition['packed_expression_offset'], condition['packed_expression_size'])
+
+            active = self.state_table_count == 2 and next_state_offset >= self.state_header['second_state_table_offset']
+
+            print(next_state_offset, next_state_index)
+
             conditions.append(
-                Condition(next_state_index, condition_expression, commands, subconditions, print_indent=print_indent)
+                Condition(next_state_index, condition_expression, commands, subconditions, active=active,
+                          print_indent=print_indent)
             )
         return conditions
 
@@ -445,7 +487,6 @@ class EzState(object):
 
                 condition_offset = len(tables['condition_table']) * CONDITION.size
 
-                # TODO: for double tables, conditions will need to remember which table they are part of
                 condition_commands_offset, condition_commands_count = self.pack_commands(tables, condition.commands)
                 subconditions_offset, subconditions_count = self.pack_conditions(tables, condition.subconditions)
 
@@ -463,6 +504,10 @@ class EzState(object):
 
     def pack_esd(self, print_repacked_tables=False):
 
+        """ Packs tables and computes new byte offsets for them. """
+
+        # TODO: is 'existing commands' a thing for enemyCommon.esd?
+
         tables = {
             'header': [],
             'state_header': [],
@@ -478,7 +523,11 @@ class EzState(object):
             'existing_conditions': {}  # {condition: condition_table_offset}
         }
 
-        for state in self.states:
+        active_state_table_offset = None
+
+        for state in self.passive_states:
+
+            print(state.index)
 
             enter_commands_offset, enter_commands_count = self.pack_commands(tables, state.enter_commands)
             exit_commands_offset, exit_commands_count = self.pack_commands(tables, state.exit_commands)
@@ -492,11 +541,36 @@ class EzState(object):
                  unknown_commands_offset, unknown_commands_count]
             )
 
+        if self.state_table_count == 2:
+            active_state_table_offset = DOUBLE_STATE_HEADER.size + len(tables['state_table']) * STATE.size
+
+            for state in self.active_states:
+                enter_commands_offset, enter_commands_count = self.pack_commands(tables, state.enter_commands)
+                exit_commands_offset, exit_commands_count = self.pack_commands(tables, state.exit_commands)
+                unknown_commands_offset, unknown_commands_count = self.pack_commands(tables, state.unknown_commands)
+                condition_pointers_offset, condition_pointers_count = self.pack_conditions(tables, state.conditions)
+                tables['state_table'].append(
+                    [state.index,
+                     condition_pointers_offset, condition_pointers_count,
+                     enter_commands_offset, enter_commands_count,
+                     exit_commands_offset, exit_commands_count,
+                     unknown_commands_offset, unknown_commands_count]
+                )
+
         if self.esd_name is not None:
             tables['esd_name'] = self.esd_name.encode('utf-16le')
 
-        # Update final offsets (header is discounted). TODO: double state table.
-        state_table_offset = SINGLE_STATE_HEADER.size
+        # Update final offsets (header is discounted).
+        if self.state_table_count == 1:
+            state_table_offset = SINGLE_STATE_HEADER.size
+        elif self.state_table_count == 2:
+            state_table_offset = DOUBLE_STATE_HEADER.size
+        else:
+            raise ValueError(f"Invalid state table count: {self.state_table_count}")
+
+        print('Output condition table size:', len(tables['condition_table']) * CONDITION.size)
+        print('Output command table size:', len(tables['command_table']) * COMMAND.size)
+
         condition_table_offset = state_table_offset + len(tables['state_table']) * STATE.size
         command_table_offset = condition_table_offset + len(tables['condition_table']) * CONDITION.size
         command_arg_table_offset = command_table_offset + len(tables['command_table']) * COMMAND.size
@@ -510,11 +584,11 @@ class EzState(object):
         eof_offset = file_tail_offset + len(self.file_tail)
 
         if print_repacked_tables:
-            print('State offset:', state_table_offset)
-            print('Condition offset:', condition_table_offset)
-            print('Command offset:', command_table_offset)
-            print('Command arg offset:', command_arg_table_offset)
-            print('Condition pointer offset:', condition_pointer_table_offset)
+            print('State table offset:', state_table_offset)
+            print('Condition table offset:', condition_table_offset)
+            print('Command table offset:', command_table_offset)
+            print('Command arg table offset:', command_arg_table_offset)
+            print('Condition pointer table offset:', condition_pointer_table_offset)
             print('Packed expressions offset:', packed_condition_expressions_offset)
 
         for state in tables['state_table']:
@@ -554,10 +628,15 @@ class EzState(object):
                 condition_pointer[0] += condition_table_offset
 
         if print_repacked_tables:
+            print('\nState Table:')
             [print(state) for state in tables['state_table']]
+            print('\nCondition Table:')
             [print(condition) for condition in tables['condition_table']]
+            print('\nCommand Table:')
             [print(command) for command in tables['command_table']]
+            print('\nCommand Arg Table:')
             [print(command_arg) for command_arg in tables['command_arg_table']]
+            print('\nCondition Pointer Table:')
             [print(condition_pointer) for condition_pointer in tables['condition_pointer_table']]
 
         # Create headers.
@@ -568,7 +647,10 @@ class EzState(object):
             version_tail=self.header['version_tail'],
             table_size_offset=self.header['table_size_offset'],
             file_size_offset=eof_offset,  # excludes header size
-            unknowns=self.header['unknowns'],
+            unknown=self.header['unknown'],  # 6
+            base_state_header_size=self.header['base_state_header_size'],  # 44
+            base_state_header_count=self.header['base_state_header_count'],  # 1
+            state_table_header_size=self.header['state_table_header_size'],  # 16
             state_table_count=self.state_table_count,
             state_row_size=STATE.size,
             state_row_count=len(tables['state_table']),
@@ -588,18 +670,38 @@ class EzState(object):
             esd_name_2_size=0,
         )
 
-        tables['state_header'] = dict(
-            unknowns_1=self.state_header['unknowns_1'],
-            esd_names_offset=self.state_header['esd_names_offset'],  # 44
-            esd_names_count=self.state_header['esd_names_count'],  # 1
-            esd_name_0_offset=esd_name_0_offset,
-            esd_name_0_size=esd_name_0_size,
-            zeroes=self.state_header['zeroes'],  # (0, 0)
-            first_state_table_index=self.state_header['first_state_table_index'],  # 0
-            first_state_table_offset=state_table_offset,
-            first_state_table_size=len(self.states) - 1,  # number of states (no 0 repeat)
-            first_state_table_offset_2=state_table_offset,  # duplicate
-        )
+        if self.state_table_count == 1:
+            tables['state_header'] = dict(
+                unknowns_1=self.state_header['unknowns_1'],
+                esd_names_offset=self.state_header['esd_names_offset'],  # 44
+                esd_names_count=self.state_header['esd_names_count'],  # 1
+                esd_name_0_offset=esd_name_0_offset,
+                esd_name_0_size=esd_name_0_size,
+                zeroes=self.state_header['zeroes'],  # (0, 0)
+                first_state_table_index=self.state_header['first_state_table_index'],  # 0
+                first_state_table_offset=state_table_offset,
+                first_state_table_size=len(self.passive_states) - 1,  # number of states (no 0 repeat)
+                first_state_table_offset_2=state_table_offset,  # duplicate
+            )
+        elif self.state_table_count == 2:
+            tables['state_header'] = dict(
+                unknowns_1=self.state_header['unknowns_1'],
+                esd_names_offset=self.state_header['esd_names_offset'],  # 44
+                esd_names_count=self.state_header['esd_names_count'],  # 1
+                esd_name_0_offset=esd_name_0_offset,
+                esd_name_0_size=esd_name_0_size,
+                zeroes=self.state_header['zeroes'],  # (0, 0)
+                first_state_table_index=self.state_header['first_state_table_index'],  # 0
+                first_state_table_offset=state_table_offset,
+                first_state_table_size=len(self.passive_states) - 1,  # number of states (no 0 repeat)
+                first_state_table_offset_2=state_table_offset,  # duplicate
+                second_state_table_index=self.state_header['second_state_table_index'],  # 0
+                second_state_table_offset=active_state_table_offset,
+                second_state_table_size=len(self.active_states) - 1,  # number of states in table 2
+                second_state_table_offset_2=active_state_table_offset,  # duplicate
+            )
+        else:
+            raise ValueError(f"Invalid state table count: {self.state_table_count}")
 
         return tables
 
@@ -657,7 +759,7 @@ class EzState(object):
              "    with the above, but I'm not certain exactly what makes the interpreter halt during a line. It may<br>"
              "    halt whenever a zero value is not saved to a register, hence why this 'null register' is used.)<br>")
 
-        for state in self.states:
+        for state in self.passive_states:
             s += str(state)
 
         s += '</body></html>'
@@ -680,15 +782,22 @@ def state_title_bar(index):
 if __name__ == '__main__':
 
     # Example:
-    esd_file_path = 'talk/t180100.esd'   # .esd file path
+    esd_file_path = 'enemyCommon.repack.esd'   # .esd file path
     ezstate = EzState(esd_file_path)
+
+    print(ezstate.state_table_count)
+    # pprint(ezstate.header)
+    # pprint(ezstate.state_header)
+    # pprint(ezstate.state_table)
+
+    # ezstate.write('enemyCommon.repack.esd', print_repacked_tables=True)
 
     # Print to a HTML file with easy hyperlinks (defaults to '[esd_file_path].html'):
     ezstate.unpack_to_html_file()
 
     # Make a change:
-    new_state_description = b'\xa5' + 'Hello there'.encode('utf-16le') + b'\x00\x00'
-    ezstate.states[1].enter_commands[0].args[0] = new_state_description
+    # new_state_description = b'\xa5' + 'Hello there'.encode('utf-16le') + b'\x00\x00'
+    # ezstate.states[1].enter_commands[0].args[0] = new_state_description
 
     # Repack:
-    ezstate.write(esd_file_path[:-4] + '.repack.esd')
+    # ezstate.write(esd_file_path[:-4] + '.repack.esd')
