@@ -1,5 +1,8 @@
 # ezstate
 
+(This older repository has been superseded by [soulstruct](https://github.com/grimrhapsody/soulstruct), which includes both ESD unpacking/repacking and
+conversion to a Python-like syntax called "ESP".)
+
 Unpack, explore (in HTML), edit, and repack .esd files from Dark Souls 1.
 
 Edit and repack supported for all files except enemyCommon.esd, which has two state tables (coming sometime).
@@ -15,4 +18,5 @@ and evidence about their identifies in `command_names.py` and/or `notes.txt`.
 As a bonus, now includes a semi-descriptive .drb unpacker, which has only been tested for menu.drb. Not really 
 interested in pursuing that file format at the moment, though.
 
-You can find me on reddit as u/Grimrukh or u/grimrhapsody, and on SpeedSouls Discord as chara. 
+You can find me on reddit as u/Grimrukh or u/grimrhapsody, and on SpeedSouls Discord as Grimrukh. I also appear on Twitch
+sometimes as grim_rhapsody.
